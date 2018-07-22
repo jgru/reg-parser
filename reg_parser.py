@@ -1,132 +1,60 @@
 __author__ = 'gru'
 
-
-from io import StringIO
-from Registry import Registry
-import pprint
-
-def print_tree_recursive(k, print_branch=False):
-    for s in k.subkeys():
-        if print_branch:
-            print(s)
-        else:
-            print(s.name())
-
-        if len(s.subkeys()) > 0:
-            print_tree_recursive(s, print_branch)
+import logging
+import argparse
+from hive_manager import HiveManager
 
 
-# level order tree traversal
-def find_key(nodes, key):
+def init_logging():
+    logging.basicConfig(format='%(asctime)s %(message)s',
+                datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
 
-    if len(nodes) == 0:
-        return None
-
-    new_nodes = []
-
-    for n in nodes:
-        if key == n.name():
-            return n
-        else:
-            new_nodes += n.subkeys()
-
-    return find_key(new_nodes, key)
+    logging.info("Logging set up completed")
 
 
-def get_leafs(node, leafs_to_populate):
+if __name__ == "__main__":
+    init_logging()
+    ap = argparse.ArgumentParser(prog='reg-parser', description='A command '
+                                                               'line tool to extract registry keys', epilog="Maintained by _|.62|_|")
 
-    for n in node.subkeys():
-        if len(n.subkeys()) == 0:
-            leafs_to_populate.append(n)
-        else:
-            get_leafs(n, leafs_to_populate)
+    # Define optional arguments
 
-    return
+    ap.add_argument("-r", "--raw", action="store_true", help="Print raw "
+                                                             "values")
+    ap.add_argument("-b", "--bare", action="store_true", help="Print bare "
+                                                            "values (e.g. "
+                                                            "for filtering "
+                                                            "in XWays)")
+    ap.add_argument("-t", "--treeStructure", action="store_true",
+                    help="Print all keys")
+    ap.add_argument("-o", "--output", nargs="?", help="Write result to file")
 
+    ap.add_argument("-s", "--searchKeys", nargs="?",
+                    help="Keys to search, maybe separated by commata without "
+                         "whitespace")
 
-def in_order(node, key, re):
-    if node.name() == key:
-        re.append(node)
+    # Define positional argument
+    ap.add_argument("input", help="path to hive (e.g. ~/tmp/NTUser.dat")
+    args = ap.parse_args()
 
-    for sub in node.subkeys():
-        in_order(sub, key, re)
+    # Define and init result
+    result = ""
 
+    # Create RegistryManager
+    hive = HiveManager(args.input)
 
-def find_key_pre_order(node, key):
-    if node.name() == key:
-        return node
-
-    match = None
-    sks = node.subkeys()
-    for s in sks:
-        if match is None:
-            match = find_key_pre_order(s, key)
-
-    return match
-
-
-def extract_values(key):
-    leafs = []
-    get_leafs(key, leafs)
-
-    values = {}
-    for l in leafs:
-        if len(l.values()) > 0:
-            values[l] = l.values()
-
-    return values
-
-
-# Cuts off, after first string
-def convert_binary_data(data):
-    data = data[::2]
-    data = data[:data.find(b'\x00')]
-    return data
-
-
-def print_results(resultdict):
-    for k in resultdict.keys():
-
-        if resultdict[k][0].value_type() != Registry.RegNone:
-            print("--------------------------")
-            print(str(k))
-
-        for v in resultdict[k]:
-            if v.value_type() == Registry.RegNone:
-                continue
-            elif v.value_type() == Registry.RegBin:
-                print("Datatype: " + v.value_type_str())
-                print(convert_binary_data(v.value()))
-            else:
-                print(v.value())
-
-
-
-
-f = open("Vibranium-NTUSER.DAT", "rb")
-r = Registry.Registry(f)
-root = (r.root())
-
-# OpenSaveMRU
-# RecentDocs
-# LastVisitedMRU
-# Explorer
-
-
-# Extract ext->program links
-node = find_key([root], "FileExts")
-resultdict = extract_values(node)
-print_results(resultdict)
-
-# Extract recent documents
-node = find_key_pre_order(root, "RecentDocs")
-print_tree_recursive(node, print_branch=True)
-resultdict = extract_values(node)
-print_results(resultdict)
-
-
-# Extract OpenSaveMRU
-#node = find_key_pre_order(root, "RecentDocs")
-#print_tree_recursive(node, print_branch=True)
-#resultdict = extract_values(node)
-#print_results(resultdict)
+    if args.treeStructure:
+        result = hive.get_tree_structure(hive.root, print_branch=True)
+    print(result)
+    # Process search keys
+    sk = args.searchKeys.split(",")
+    print("Keys to search: ", sk)
+    if sk is not None:
+        for s in sk:
+            # Retrieve RecentDocs
+            result += str(hive.retrieve(s, args.bare, args.raw))
+    print(result)
+    if args.output is not None:
+        print("Write to: " + args.output)
+        with open(args.output, "w+") as f:
+            f.write(result)
