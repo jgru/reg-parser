@@ -13,7 +13,7 @@ class ProcessorFactory():
     def get_processor(key_str, data):
         if key_str == FILE_EXT_KEY:
             return DefaultProcessor(data)
-            #return FileExtProcessor(subkey)
+            #return FileExtProcessor(data)
 
         elif key_str == RECENT_DOCS_KEY:
             return RecentDocsProcessor(data)
@@ -38,27 +38,35 @@ class DefaultProcessor(AbstractSubkeyProcessor):
         super().__init__(data)
 
     def process_content(self, is_bare, is_raw):
-        return self.str_rep()
+        return self.str_rep(is_bare, is_raw)
 
-    def str_rep(self):
-
+    def str_rep(self, is_bare, is_raw):
         data_dict = self.data
         result = ""
+        bare_result = ""
+
         for k in data_dict.keys():
 
             if data_dict[k][0].value_type() != Registry.RegNone:
-                print("--------------------------")
-                print(str(k))
+
+                result += "\n--------------------------\n"
+                result += str(k) +"\n"
 
             for v in data_dict[k]:
                 #print("Name: ", v.name())
                 if v.value_type() == Registry.RegNone:
                     continue
                 elif v.value_type() == Registry.RegBin:
-                    print("Datatype: " + v.value_type_str())
-                    print(self.convert_binary_data(v.value()))
+                    result += "Datatype: " + v.value_type_str() + "\n"
+                    result += self.convert_binary_data(v.value()) + "\n"
+                    bare_result += self.convert_binary_data(v.value()) + "\n"
                 else:
-                    print(v.value())
+                    result += v.value() + "\n"
+                    bare_result += v.value() + "\n"
+
+            if is_bare:
+                return bare_result
+
         return result
 
     # Cuts off, after first string
@@ -73,8 +81,8 @@ class FileExtProcessor(DefaultProcessor):
     def __init__(self, data):
         super().__init__(data)
 
-    def str_rep(self):
-        super().str_rep()
+    def process_content(self, is_bare, is_raw):
+        return self.str_rep()
 
 
 class RecentDocsProcessor(DefaultProcessor):
@@ -93,7 +101,7 @@ class RecentDocsProcessor(DefaultProcessor):
 
     def process_content(self, is_bare, is_raw):
         bare_result = ""
-        result = ("=" * 51) + "\n"
+        result = "\n" + ("=" * 50) + "\n"
         data_dict = self.data
 
         for k in data_dict.keys():
@@ -115,7 +123,7 @@ class RecentDocsProcessor(DefaultProcessor):
                         result += str(decs) + "\n"
 
                         if is_raw:
-                            result += str(v.value())+ "\n"
+                            result += str(v.value()) + "\n"
 
                     else:
                         bytes = self.convert_binary_data(v.value())
@@ -133,7 +141,7 @@ class RecentDocsProcessor(DefaultProcessor):
                     bare_result += str(i) +" = " + raw_items[i] + "\n"
 
             bare_result += "\n"
-            result += ("-"*51 + "\n\n")
+            result += ("-"*50 + "\n\n")
 
         if is_bare:
             return bare_result

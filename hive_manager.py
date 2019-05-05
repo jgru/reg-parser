@@ -4,6 +4,7 @@ __author__ = 'gru'
 from Registry import Registry
 from subkey_processor import ProcessorFactory
 
+
 class HiveManager:
 
     def __init__(self, f):
@@ -86,6 +87,21 @@ class HiveManager:
                 new_nodes += n.subkeys()
 
         return cls.find_key(new_nodes, key)
+
+    @classmethod
+    def search_key(cls, nodes, key):
+
+        if len(nodes) == 0:
+            return None
+        new_nodes = []
+
+        for n in nodes:
+            if key in n.name():
+                return n
+            else:
+                new_nodes += n.subkeys()
+
+        return cls.search_key(new_nodes, key)
 
     @classmethod
     def in_order(cls, node, key, re):
